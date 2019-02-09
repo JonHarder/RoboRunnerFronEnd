@@ -10,7 +10,10 @@ import Json.Decode exposing (Decoder, dict, int, list, string)
 type Bot = Bot String
 
 
-type Standings = Standings (Dict String (Dict String Int))
+type alias ResultsData = Dict String (Dict String Int)
+type alias InProgressData = String
+
+type Standings = Results ResultsData | InProgress InProgressData
 
 
 displayBot : Bot -> String
@@ -77,8 +80,9 @@ update msg model =
                 Ok data ->
                     (ShowStandings data, Cmd.none)
 
-                Err _ ->
-                    (Failure, Cmd.none)
+                Err e ->
+                    let _ = Debug.log "failed to parse standings" e
+                    in (Failure, Cmd.none)
                 
         StartBattle data ->
             (LoadStandings data, Http.post
@@ -130,16 +134,29 @@ view model =
                 , button [ onClick (BackToBots data) ] [ text "Back" ]
                 ]
 
-        ShowStandings (Standings data) ->
-            div []
-                [ h1 [] [ text "Standings" ]
-                , p [] [ text (String.fromInt (Dict.size data)) ]
-                ]
+        ShowStandings standings ->
+            case standings of
+                Results data ->
+                    div []
+                        [ h1 [] [ text "Standings" ]
+                        , p [] [ text (String.fromInt (Dict.size data)) ]
+                        ]
+
+                InProgress message ->
+                    div []
+                        [ h1 [] [ text "Standings" ]
+                        , p [] [ text message ]
+                        ]
 
 
 
 standingsDecoder : Decoder Standings
-standingsDecoder = Decode.map Standings (dict (dict int))
+standingsDecoder =
+    let
+        inProgress = Decode.map InProgress <| Decode.field "message" string
+        decoder = Decode.map Results (dict (dict int))
+    in
+        Decode.oneOf [inProgress, decoder]
 
 
 botDecoder : Decoder (List Bot)
