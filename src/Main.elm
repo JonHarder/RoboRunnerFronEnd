@@ -1,9 +1,17 @@
 import Browser
-import Html exposing (Html, pre, text, ul, li)
--- import Html.Events exposing (onClick)
+import Html exposing (Html, button, div, pre, text, ul, li)
+import Html.Events exposing (onClick)
 import Http
+import Json.Decode as Decode
 import Json.Decode exposing (Decoder, list, string)
 
+
+type Bot = Bot String
+
+
+displayBot : Bot -> String
+displayBot (Bot name) = "Bot: " ++ name
+ 
 
 main =
     Browser.element
@@ -15,13 +23,15 @@ main =
 
 
 type Msg
-    = GotBots (Result Http.Error (List String))
+    = GotBots (Result Http.Error (List Bot))
+    | StartBattle
+    | BattleStarted (Result Http.Error ())
 
 
 type Model
     = Failure
     | Loading
-    | Success (List String)
+    | Success (List Bot)
 
 
 init : () -> (Model, Cmd Msg)
@@ -50,6 +60,26 @@ update msg model =
                 Err _ ->
                     (Failure, Cmd.none)
                 
+        StartBattle ->
+            (model, Http.post
+                 { body = Http.emptyBody
+                 , url = "http://localhost:3000/battles"
+                 , expect = Http.expectWhatever BattleStarted
+                 })
+
+        BattleStarted result ->
+            case result of
+                Ok _ ->
+                    (model, Cmd.none)
+
+                Err _ ->
+                    (Failure, Cmd.none)
+
+
+viewBot : Bot -> Html msg
+viewBot bot =
+    li [] [ text (displayBot bot) ]
+
 
 view : Model -> Html Msg
 view model =
@@ -61,10 +91,12 @@ view model =
             text "Loading..."
 
         Success bots ->
-            ul []
-                (List.map (\botName -> li [] [ text botName ]) bots)
+            div []
+                [ ul [] <| List.map viewBot bots
+                , button [ onClick StartBattle ] [ text "Battle!" ]
+                ]
 
 
-botDecoder : Decoder (List String)
+botDecoder : Decoder (List Bot)
 botDecoder =
-    list string
+    list (Decode.map Bot string)
