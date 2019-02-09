@@ -1,5 +1,5 @@
 import Browser
-import Html exposing (Html, button, div, pre, text, ul, li)
+import Html exposing (Html, button, div, h1, p, text, ul, li)
 import Html.Events exposing (onClick)
 import Http
 import Json.Decode as Decode
@@ -24,14 +24,20 @@ main =
 
 type Msg
     = GotBots (Result Http.Error (List Bot))
-    | StartBattle
+    | StartBattle BaseArgs
     | BattleStarted (Result Http.Error ())
+    | BackToBots BaseArgs
+
+
+type alias BaseArgs =
+    { bots : List Bot }
 
 
 type Model
     = Failure
     | Loading
-    | Success (List Bot)
+    | Base BaseArgs
+    | Standings BaseArgs
 
 
 init : () -> (Model, Cmd Msg)
@@ -55,13 +61,13 @@ update msg model =
         GotBots result ->
             case result of
                 Ok bots ->
-                    (Success bots, Cmd.none)
+                    (Base { bots = bots }, Cmd.none)
 
                 Err _ ->
                     (Failure, Cmd.none)
                 
-        StartBattle ->
-            (model, Http.post
+        StartBattle data ->
+            (Standings data, Http.post
                  { body = Http.emptyBody
                  , url = "http://localhost:3000/battles"
                  , expect = Http.expectWhatever BattleStarted
@@ -75,6 +81,9 @@ update msg model =
                 Err _ ->
                     (Failure, Cmd.none)
 
+        BackToBots data ->
+            (Base data, Cmd.none)
+
 
 viewBot : Bot -> Html msg
 viewBot bot =
@@ -85,16 +94,24 @@ view : Model -> Html Msg
 view model =
     case model of
         Failure ->
-            text "I was unable to get the robots"
+            text "something went wrong :("
 
         Loading ->
             text "Loading..."
 
-        Success bots ->
+        Base data ->
             div []
-                [ ul [] <| List.map viewBot bots
-                , button [ onClick StartBattle ] [ text "Battle!" ]
+                [ ul [] <| List.map viewBot data.bots
+                , button [ onClick (StartBattle data) ] [ text "Battle!" ]
+                , p [] [ text "TODO: once battle is started, hit standings and refresh until theres something there" ]
                 ]
+
+        Standings data ->
+            div []
+                [ h1 [] [ text "Bot Standings" ]
+                , button [ onClick (BackToBots data) ] [ text "Back" ]
+                ]
+
 
 
 botDecoder : Decoder (List Bot)
