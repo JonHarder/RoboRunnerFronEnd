@@ -1,12 +1,16 @@
+import Dict exposing (Dict)
 import Browser
 import Html exposing (Html, button, div, h1, p, text, ul, li)
 import Html.Events exposing (onClick)
 import Http
 import Json.Decode as Decode
-import Json.Decode exposing (Decoder, list, string)
+import Json.Decode exposing (Decoder, dict, int, list, string)
 
 
 type Bot = Bot String
+
+
+type Standings = Standings (Dict String (Dict String Int))
 
 
 displayBot : Bot -> String
@@ -24,6 +28,7 @@ main =
 
 type Msg
     = GotBots (Result Http.Error (List Bot))
+    | GotStandings (Result Http.Error Standings)
     | StartBattle BaseArgs
     | BattleStarted (Result Http.Error ())
     | BackToBots BaseArgs
@@ -37,7 +42,8 @@ type Model
     = Failure
     | Loading
     | Base BaseArgs
-    | Standings BaseArgs
+    | LoadStandings BaseArgs
+    | ShowStandings Standings
 
 
 init : () -> (Model, Cmd Msg)
@@ -65,9 +71,17 @@ update msg model =
 
                 Err _ ->
                     (Failure, Cmd.none)
+
+        GotStandings result ->
+            case result of
+                Ok data ->
+                    (ShowStandings data, Cmd.none)
+
+                Err _ ->
+                    (Failure, Cmd.none)
                 
         StartBattle data ->
-            (Standings data, Http.post
+            (LoadStandings data, Http.post
                  { body = Http.emptyBody
                  , url = "http://localhost:3000/battles"
                  , expect = Http.expectWhatever BattleStarted
@@ -76,7 +90,11 @@ update msg model =
         BattleStarted result ->
             case result of
                 Ok _ ->
-                    (model, Cmd.none)
+                    (model, Http.get
+                         { url = "http://localhost:3000/standings"
+                         , expect = Http.expectJson GotStandings standingsDecoder
+                         }
+                    )
 
                 Err _ ->
                     (Failure, Cmd.none)
@@ -106,12 +124,22 @@ view model =
                 , p [] [ text "TODO: once battle is started, hit standings and refresh until theres something there" ]
                 ]
 
-        Standings data ->
+        LoadStandings data ->
             div []
                 [ h1 [] [ text "Bot Standings" ]
                 , button [ onClick (BackToBots data) ] [ text "Back" ]
                 ]
 
+        ShowStandings (Standings data) ->
+            div []
+                [ h1 [] [ text "Standings" ]
+                , p [] [ text (String.fromInt (Dict.size data)) ]
+                ]
+
+
+
+standingsDecoder : Decoder Standings
+standingsDecoder = Decode.map Standings (dict (dict int))
 
 
 botDecoder : Decoder (List Bot)
