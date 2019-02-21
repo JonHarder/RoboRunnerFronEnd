@@ -13,7 +13,7 @@
     "parcel": "^1.11.0"
   },
   "scripts": {
-    "serve": "parcel src/index.html",
+    "serve": "parcel --no-cache src/index.html",
     "build": "parcel build src/index.html"
   }
 }

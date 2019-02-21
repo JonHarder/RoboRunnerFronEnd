@@ -7,7 +7,7 @@ import Json.Decode exposing (Decoder)
 import Url
 
 import Api.Robots exposing (getRobots, Robot)
-import Websockets exposing (recieveMessage)
+import Websockets exposing (BattleResults, showBattleResults, recieveBattleResults)
 
 
 main : Program () Model Msg
@@ -24,7 +24,7 @@ main =
 
 type alias Model =
     { robots : List Robot
-    , message : String
+    , battleResults : Maybe BattleResults
     }
 
 
@@ -32,7 +32,7 @@ init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
     let
         model = { robots = []
-                , message = ""
+                , battleResults = Nothing
                 }
     in
         (model, getRobots GotRobots)
@@ -42,7 +42,7 @@ type Msg
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
     | GotRobots (Result Http.Error (List Robot))
-    | GotMessage String
+    | GotBattleResults (Maybe BattleResults)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -62,15 +62,13 @@ update msg model =
                 Ok robots ->
                     ( { model | robots = robots }, Cmd.none )
 
-        GotMessage message ->
-            ( { model | message = message }
-            , Cmd.none
-            )
+        GotBattleResults results ->
+            ( { model | battleResults = results }, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    recieveMessage GotMessage
+    recieveBattleResults GotBattleResults
 
 
 showRobot : Robot -> Html msg
@@ -85,7 +83,12 @@ view model =
           [ div []
                 [ h1 [] [text "Robots"]
                 , ul [] (List.map showRobot model.robots)
-                , h2 [] [ text model.message]
+                , case model.battleResults of
+                      Just results ->
+                          showBattleResults results
+
+                      Nothing ->
+                          div [] []
                 ]
           ]
     }

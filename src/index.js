@@ -7,7 +7,7 @@ const initWebSocket = app => {
 	console.log('websocket connected')
     }
     socket.onmessage = event => {
-	app.ports.recieveMessage.send(event.data)
+	app.ports.recieveMessage.send(JSON.parse(event.data))
 	console.log('websocket recieved message')
     }
     socket.onerror = err => {
