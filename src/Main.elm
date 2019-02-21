@@ -1,12 +1,13 @@
 import Browser exposing (Document)
 import Browser.Navigation as Nav
-import Html exposing (Html, div, h1, text, li, ul)
+import Html exposing (Html, div, h1, h2, text, li, ul)
 import Http
 import Html.Attributes exposing (href)
 import Json.Decode exposing (Decoder)
 import Url
 
 import Api.Robots exposing (getRobots, Robot)
+import Websockets exposing (recieveMessage)
 
 
 main : Program () Model Msg
@@ -21,14 +22,18 @@ main =
         }
 
 
-type Model
-    = Robots (List Robot)
+type alias Model =
+    { robots : List Robot
+    , message : String
+    }
 
 
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
     let
-        model = Robots []
+        model = { robots = []
+                , message = ""
+                }
     in
         (model, getRobots GotRobots)
 
@@ -37,6 +42,7 @@ type Msg
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
     | GotRobots (Result Http.Error (List Robot))
+    | GotMessage String
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -54,12 +60,17 @@ update msg model =
                     ( model, Cmd.none )
 
                 Ok robots ->
-                    ( Robots robots, Cmd.none )
+                    ( { model | robots = robots }, Cmd.none )
+
+        GotMessage message ->
+            ( { model | message = message }
+            , Cmd.none
+            )
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    recieveMessage GotMessage
 
 
 showRobot : Robot -> Html msg
@@ -68,12 +79,13 @@ showRobot robot =
 
 
 view : Model -> Document Msg
-view (Robots robots) =
+view model =
     { title = "Robo Runner"
     , body =
-        [ div []
-              [ h1 [] [text "Robots"]
-              , ul [] (List.map showRobot robots)
-              ]
-        ]
+          [ div []
+                [ h1 [] [text "Robots"]
+                , ul [] (List.map showRobot model.robots)
+                , h2 [] [ text model.message]
+                ]
+          ]
     }
