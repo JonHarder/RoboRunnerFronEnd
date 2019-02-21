@@ -1,62 +1,60 @@
-import Dict exposing (Dict)
-import Browser
-import Html exposing (Html, button, div, h1, p, text, ul, li)
-import Html.Events exposing (onClick)
+import Browser exposing (Document)
+import Browser.Navigation as Nav
+import Html exposing (Html, div, h1, text, li, ul)
 import Http
-import Json.Decode as Decode
-import Json.Decode exposing (Decoder, dict, int, list, string)
+import Html.Attributes exposing (href)
+import Json.Decode exposing (Decoder)
+import Url
+
+import Api.Robots exposing (getRobots, Robot)
 
 
-type Bot = Bot String
-
-
-type alias ResultsData = Dict String (Dict String Int)
-type alias InProgressData = String
-
-type Standings = Results ResultsData | InProgress InProgressData
-
-
-displayBot : Bot -> String
-displayBot (Bot name) = "Bot: " ++ name
- 
-
+main : Program () Model Msg
 main =
-    Browser.element
+    Browser.application
         { init = init
         , update = update
         , view = view
         , subscriptions = subscriptions
+        , onUrlChange = UrlChanged
+        , onUrlRequest = LinkClicked
         }
-
-
-type Msg
-    = GotBots (Result Http.Error (List Bot))
-    | GotStandings (Result Http.Error Standings)
-    | StartBattle BaseArgs
-    | BattleStarted (Result Http.Error ())
-    | BackToBots BaseArgs
-
-
-type alias BaseArgs =
-    { bots : List Bot }
 
 
 type Model
-    = Failure
-    | Loading
-    | Base BaseArgs
-    | LoadStandings BaseArgs
-    | ShowStandings Standings
+    = Robots (List Robot)
 
 
-init : () -> (Model, Cmd Msg)
-init _ =
-    ( Loading
-    , Http.get
-        { url = "http://localhost:3000/robots"
-        , expect = Http.expectJson GotBots botDecoder
-        }
-    )
+init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init flags url key =
+    let
+        model = Robots []
+    in
+        (model, getRobots GotRobots)
+
+
+type Msg
+    = LinkClicked Browser.UrlRequest
+    | UrlChanged Url.Url
+    | GotRobots (Result Http.Error (List Robot))
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        LinkClicked urlRequest ->
+            ( model, Cmd.none )
+
+        UrlChanged url ->
+            ( model, Cmd.none )
+
+        GotRobots response ->
+            case response of
+                Err _ ->
+                    ( model, Cmd.none )
+
+                Ok robots ->
+                    ( Robots robots, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
@@ -64,101 +62,18 @@ subscriptions model =
     Sub.none
 
 
-update : Msg -> Model -> (Model, Cmd Msg)
-update msg model =
-    case msg of
-        GotBots result ->
-            case result of
-                Ok bots ->
-                    (Base { bots = bots }, Cmd.none)
-
-                Err _ ->
-                    (Failure, Cmd.none)
-
-        GotStandings result ->
-            case result of
-                Ok data ->
-                    (ShowStandings data, Cmd.none)
-
-                Err e ->
-                    let _ = Debug.log "failed to parse standings" e
-                    in (Failure, Cmd.none)
-                
-        StartBattle data ->
-            (LoadStandings data, Http.post
-                 { body = Http.emptyBody
-                 , url = "http://localhost:3000/battles"
-                 , expect = Http.expectWhatever BattleStarted
-                 })
-
-        BattleStarted result ->
-            case result of
-                Ok _ ->
-                    (model, Http.get
-                         { url = "http://localhost:3000/standings"
-                         , expect = Http.expectJson GotStandings standingsDecoder
-                         }
-                    )
-
-                Err _ ->
-                    (Failure, Cmd.none)
-
-        BackToBots data ->
-            (Base data, Cmd.none)
+showRobot : Robot -> Html msg
+showRobot robot =
+    li [] [ text robot.name ]
 
 
-viewBot : Bot -> Html msg
-viewBot bot =
-    li [] [ text (displayBot bot) ]
-
-
-view : Model -> Html Msg
-view model =
-    case model of
-        Failure ->
-            text "something went wrong :("
-
-        Loading ->
-            text "Loading..."
-
-        Base data ->
-            div []
-                [ ul [] <| List.map viewBot data.bots
-                , button [ onClick (StartBattle data) ] [ text "Battle!" ]
-                , p [] [ text "TODO: once battle is started, hit standings and refresh until theres something there" ]
-                ]
-
-        LoadStandings data ->
-            div []
-                [ h1 [] [ text "Bot Standings" ]
-                , button [ onClick (BackToBots data) ] [ text "Back" ]
-                ]
-
-        ShowStandings standings ->
-            case standings of
-                Results data ->
-                    div []
-                        [ h1 [] [ text "Standings" ]
-                        , p [] [ text (String.fromInt (Dict.size data)) ]
-                        ]
-
-                InProgress message ->
-                    div []
-                        [ h1 [] [ text "Standings" ]
-                        , p [] [ text message ]
-                        ]
-
-
-
-standingsDecoder : Decoder Standings
-standingsDecoder =
-    let
-        inProgress = Decode.map InProgress <| Decode.field "message" string
-        decoder = Decode.map Results (dict (dict int))
-    in
-        Decode.oneOf [inProgress, decoder]
-
-
-botDecoder : Decoder (List Bot)
-botDecoder =
-    list (Decode.map Bot string)
+view : Model -> Document Msg
+view (Robots robots) =
+    { title = "Robo Runner"
+    , body =
+        [ div []
+              [ h1 [] [text "Robots"]
+              , ul [] (List.map showRobot robots)
+              ]
+        ]
+    }
