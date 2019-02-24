@@ -1,22 +1,27 @@
-port module Websockets exposing (BattleResults, showBattleResults, recieveBattleResults)
+port module Websockets exposing (Message(..), Status(..), BattleResults, recieveMessage, showMessage)
 
-import Html exposing (Html, text, ul, li)
+import Components.Progress exposing (Progress, decodeProgress, progressBar)
+
+import Css exposing (..)
+import Html
+import Html.Styled exposing (..)
+import Html.Styled.Attributes exposing (css)
 import Json.Decode as Decode
-import Json.Decode exposing (Value, Decoder, field, decodeValue, succeed, list, string, int)
-import Json.Decode.Pipeline exposing (required)
+import Json.Decode exposing (Value, Decoder, andThen, fail, field, decodeValue, succeed, list, string, int)
+import Json.Decode.Pipeline exposing (required, hardcoded)
 
 
-port recieveMessage : (Value -> msg) -> Sub msg
+port webSocketRecieveMessage : (Value -> msg) -> Sub msg
 
 
-recieveBattleResults : (Maybe BattleResults -> msg) -> Sub msg
-recieveBattleResults toMsg =
-    recieveMessage (\val -> toMsg (getBattleResults val))
+recieveMessage : (Maybe Message -> msg) -> Sub msg
+recieveMessage toMsg =
+    webSocketRecieveMessage (\val -> toMsg (getMessage val))
 
 
-getBattleResults : Value -> Maybe BattleResults
-getBattleResults jsonBattleResults =
-    decodeValue decodeBattleResults jsonBattleResults
+getMessage : Value -> Maybe Message
+getMessage jsonMessage =
+    decodeValue decodeMessage jsonMessage
         |> Result.toMaybe
 
 
@@ -33,18 +38,29 @@ type alias BattleResult =
 type alias BattleResults = List BattleResult
 
 
-showBattleResult : BattleResult -> Html msg
-showBattleResult battleResult =
-    li [] [ ul []
-                [ li [] [ text <| "first: " ++ battleResult.first.name ++ ": " ++ String.fromInt battleResult.first.score ]
-                , li [] [ text <| "second: " ++ battleResult.second.name ++ ": " ++ String.fromInt battleResult.second.score ]
+showMessage : Message -> Html msg
+showMessage message =
+    case message of
+        Status NotStarted ->
+            div [] [ text "battle not started" ]
+
+        Status Started ->
+            div [] [ text "battle started!" ]
+
+        Status Finished ->
+            div [] [ text "battle finished!" ]
+
+        Results _ ->
+            div [] [ text "got some battle results" ]
+
+        InProgress p ->
+            div []
+                [ div [ css
+                        [ textAlign center]
+                      ]
+                      [ text "Running..." ]
+                 , progressBar p
                 ]
-          ]
-
-
-showBattleResults : BattleResults -> Html msg
-showBattleResults battleResults =
-    ul [] (List.map showBattleResult battleResults)
 
 
 decodeBotAndScore : Decoder BotAndScore
@@ -64,3 +80,38 @@ decodeBattle =
 decodeBattleResults : Decoder BattleResults
 decodeBattleResults =
     field "battles" (list decodeBattle)
+
+
+type Status = NotStarted | Started | Finished
+
+
+type Message
+    = Status Status
+    | Results BattleResults
+    | InProgress Progress
+
+
+
+messageDispatch : String -> Decoder Message
+messageDispatch message =
+    case message of
+        "started" ->
+            succeed (Status Started)
+
+        "finished" ->
+            succeed (Status Finished)
+
+        "results" ->
+            field "data" (Decode.map Results decodeBattleResults)
+
+        "progress" ->
+            field "data" (Decode.map InProgress decodeProgress)
+
+        _ ->
+            fail "unknown message type"
+
+
+decodeMessage : Decoder Message
+decodeMessage =
+    field "message" string
+        |> andThen messageDispatch

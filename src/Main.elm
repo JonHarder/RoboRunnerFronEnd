@@ -1,13 +1,16 @@
 import Browser exposing (Document)
 import Browser.Navigation as Nav
-import Html exposing (Html, div, h1, h2, text, li, ul)
+
+import Css exposing (..)
+import Html
+import Html.Styled exposing (..)
+import Html.Styled.Attributes exposing (css)
+
 import Http
-import Html.Attributes exposing (href)
-import Json.Decode exposing (Decoder)
 import Url
 
 import Api.Robots exposing (getRobots, Robot)
-import Websockets exposing (BattleResults, showBattleResults, recieveBattleResults)
+import Websockets exposing (Message(..), Status(..), recieveMessage, showMessage)
 
 
 main : Program () Model Msg
@@ -24,7 +27,7 @@ main =
 
 type alias Model =
     { robots : List Robot
-    , battleResults : Maybe BattleResults
+    , message : Message
     }
 
 
@@ -32,7 +35,7 @@ init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
     let
         model = { robots = []
-                , battleResults = Nothing
+                , message = Status NotStarted
                 }
     in
         (model, getRobots GotRobots)
@@ -41,8 +44,8 @@ init flags url key =
 type Msg
     = LinkClicked Browser.UrlRequest
     | UrlChanged Url.Url
+    | GotMessage (Maybe Message)
     | GotRobots (Result Http.Error (List Robot))
-    | GotBattleResults (Maybe BattleResults)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -62,13 +65,18 @@ update msg model =
                 Ok robots ->
                     ( { model | robots = robots }, Cmd.none )
 
-        GotBattleResults results ->
-            ( { model | battleResults = results }, Cmd.none )
+        GotMessage maybeMessage ->
+            case maybeMessage of
+                Just message ->
+                    ( { model | message = message }, Cmd.none )
+
+                Nothing ->
+                    ( model, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    recieveBattleResults GotBattleResults
+    recieveMessage GotMessage
 
 
 showRobot : Robot -> Html msg
@@ -76,19 +84,18 @@ showRobot robot =
     li [] [ text robot.name ]
 
 
+styledView : Model -> Html Msg
+styledView model = 
+    div [ ]
+        [ h1 [] [text "Robots"]
+        , ul [] (List.map showRobot model.robots)
+        , h1 [] [ text "Battle Results" ]
+        , showMessage model.message
+        ]
+
+
 view : Model -> Document Msg
 view model =
     { title = "Robo Runner"
-    , body =
-          [ div []
-                [ h1 [] [text "Robots"]
-                , ul [] (List.map showRobot model.robots)
-                , case model.battleResults of
-                      Just results ->
-                          showBattleResults results
-
-                      Nothing ->
-                          div [] []
-                ]
-          ]
+    , body = [ toUnstyled <| styledView model ]
     }
