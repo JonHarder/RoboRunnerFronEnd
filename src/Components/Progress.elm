@@ -26,7 +26,6 @@ progressBar progress =
     in
         div [ css
               [ marginLeft (px 10)
-              , marginRight (px 10)
               , width (pct 100)
               , border3 (px 5) solid (rgb 255 255 255)
               ]
