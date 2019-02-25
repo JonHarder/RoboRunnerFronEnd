@@ -5,12 +5,14 @@ import Css exposing (..)
 import Html
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (css)
+import File exposing (File)
 
 import Http
 import Url
 
 import Api.Robots exposing (getRobots, Robot)
 import Websockets exposing (Message(..), Status(..), recieveMessage, showMessage)
+import Components.FileInput exposing (fileInput)
 
 
 main : Program () Model Msg
@@ -28,6 +30,7 @@ main =
 type alias Model =
     { robots : List Robot
     , message : Message
+    , uploadedBot : Maybe File
     }
 
 
@@ -36,6 +39,7 @@ init flags url key =
     let
         model = { robots = []
                 , message = Status NotStarted
+                , uploadedBot = Nothing
                 }
     in
         (model, getRobots GotRobots)
@@ -46,6 +50,7 @@ type Msg
     | UrlChanged Url.Url
     | GotMessage (Maybe Message)
     | GotRobots (Result Http.Error (List Robot))
+    | GotFile File
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -73,6 +78,12 @@ update msg model =
                 Nothing ->
                     ( model, Cmd.none )
 
+        GotFile f ->
+            let
+                _ = Debug.log "got file" f
+            in
+                ( { model | uploadedBot = Just f }, Cmd.none )
+
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -91,6 +102,7 @@ styledView model =
         , ul [] (List.map showRobot model.robots)
         , h1 [] [ text "Battle Results" ]
         , showMessage model.message
+        , fileInput "Upload Bot" GotFile
         ]
 
 
