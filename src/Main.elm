@@ -1,6 +1,8 @@
 import Browser exposing (Document)
 import Browser.Navigation as Nav
 
+import Bytes exposing (Bytes)
+import Task
 import Css exposing (..)
 import Html
 import Html.Styled exposing (..)
@@ -28,10 +30,16 @@ main =
         }
 
 
+type BotData
+    = NotSelected
+    | Selected File
+    | Uploaded Bytes
+
+
 type alias Model =
     { robots : List Robot
     , message : Message
-    , uploadedBot : Maybe File
+    , uploadedBot : BotData
     }
 
 
@@ -40,7 +48,7 @@ init flags url key =
     let
         model = { robots = []
                 , message = Status NotStarted
-                , uploadedBot = Nothing
+                , uploadedBot = NotSelected
                 }
     in
         (model, getRobots GotRobots)
@@ -52,7 +60,18 @@ type Msg
     | GotMessage (Maybe Message)
     | GotRobots (Result Http.Error (List Robot))
     | GotFile File
+    | GotFileBytes Bytes
     | FileRequest
+    | BotUploaded (Result Http.Error ())
+
+
+
+uploadBot bytes =
+    Http.post
+        { url = "http://localhost:3000/upload"
+        , body = Http.bytesBody "application/java-archive" bytes
+        , expect = Http.expectWhatever BotUploaded
+        }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -81,10 +100,20 @@ update msg model =
                     ( model, Cmd.none )
 
         GotFile file ->
-            ( { model | uploadedBot = Just file }, Cmd.none )
+            ( { model | uploadedBot = Selected file }, Task.perform GotFileBytes (File.toBytes file) )
+
+        GotFileBytes bytes ->
+            ( { model | uploadedBot = Uploaded bytes }, uploadBot bytes )
 
         FileRequest ->
             ( model, Select.file ["application/java-archive"] GotFile )
+
+        BotUploaded result ->
+            let
+                _ = Debug.log <| Debug.toString result
+
+            in
+                ( { model | uploadedBot = NotSelected }, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
@@ -100,14 +129,17 @@ showRobot robot =
         ]
 
 
-viewBotUpload : Maybe File -> Html Msg
-viewBotUpload mBot =
-    case mBot of
-        Just bot ->
-            div [] [ text ("got " ++ File.name bot) ]
-
-        Nothing ->
+viewBotUpload : BotData -> Html Msg
+viewBotUpload botData =
+    case botData of
+        NotSelected ->
             button [ onClick FileRequest ] [ text "Upload Bot" ]
+
+        Selected file ->
+            div [] [ text ("selected " ++ File.name file) ]
+
+        Uploaded bytes ->
+            div [] [ text "uploaded"]
 
 
 styledView : Model -> Html Msg
