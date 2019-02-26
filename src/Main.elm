@@ -4,15 +4,16 @@ import Browser.Navigation as Nav
 import Css exposing (..)
 import Html
 import Html.Styled exposing (..)
+import Html.Styled.Events exposing (onClick)
 import Html.Styled.Attributes exposing (css)
 import File exposing (File)
+import File.Select as Select
 
 import Http
 import Url
 
 import Api.Robots exposing (getRobots, Robot)
 import Websockets exposing (Message(..), Status(..), recieveMessage, showMessage)
-import Components.FileInput exposing (fileInput)
 
 
 main : Program () Model Msg
@@ -51,6 +52,7 @@ type Msg
     | GotMessage (Maybe Message)
     | GotRobots (Result Http.Error (List Robot))
     | GotFile File
+    | FileRequest
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -78,11 +80,11 @@ update msg model =
                 Nothing ->
                     ( model, Cmd.none )
 
-        GotFile f ->
-            let
-                _ = Debug.log "got file" f
-            in
-                ( { model | uploadedBot = Just f }, Cmd.none )
+        GotFile file ->
+            ( { model | uploadedBot = Just file }, Cmd.none )
+
+        FileRequest ->
+            ( model, Select.file ["application/java-archive"] GotFile )
 
 
 subscriptions : Model -> Sub Msg
@@ -92,7 +94,20 @@ subscriptions model =
 
 showRobot : Robot -> Html msg
 showRobot robot =
-    li [] [ text robot.name ]
+    li []
+        [ text robot.name
+        , button [ css [ marginLeft (px 20) ] ] [ text "download" ]
+        ]
+
+
+viewBotUpload : Maybe File -> Html Msg
+viewBotUpload mBot =
+    case mBot of
+        Just bot ->
+            div [] [ text ("got " ++ File.name bot) ]
+
+        Nothing ->
+            button [ onClick FileRequest ] [ text "Upload Bot" ]
 
 
 styledView : Model -> Html Msg
@@ -100,9 +115,9 @@ styledView model =
     div [ ]
         [ h1 [] [text "Robots"]
         , ul [] (List.map showRobot model.robots)
+        , viewBotUpload model.uploadedBot
         , h1 [] [ text "Battle Results" ]
         , showMessage model.message
-        , fileInput "Upload Bot" GotFile
         ]
 
 

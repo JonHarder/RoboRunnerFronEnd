@@ -5,4 +5,24 @@ body {
     margin-left: auto;
     margin-right: auto;
     width: 80%;
+    font-size: 1.5em;
+}
+
+
+button {
+    background-color: black;
+    color: #00ff00;
+    font-size: 16pt;
+    font-family: 'VT323', monospace;
+    border: 0;
+    border: 2px solid #00ff00;
+    cursor: pointer;
+}
+
+button:hover {
+    color: #00aa00;
+}
+
+button:active {
+    transform: translate(1px, 1px);
 }
