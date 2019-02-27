@@ -47,8 +47,8 @@ showMessage message =
         Status Finished ->
             div [] [ text "battle finished!" ]
 
-        Results _ ->
-            div [] [ text "got some battle results" ]
+        Results battleResults ->
+            showBattleResults battleResults
 
         InProgress p ->
             div []
