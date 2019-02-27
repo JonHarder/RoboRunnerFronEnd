@@ -7,6 +7,7 @@ import Css exposing (..)
 import Html
 import Html.Styled exposing (..)
 import Html.Styled.Attributes exposing (css)
+import Html.Styled.Events exposing (onClick)
 import Json.Decode as Decode
 import Json.Decode exposing (Value, Decoder, andThen, fail, field, decodeValue, succeed, list, string, int)
 import Json.Decode.Pipeline exposing (required, hardcoded)
@@ -35,11 +36,11 @@ getMessage jsonMessage =
         |> Result.toMaybe
 
 
-showMessage : Message -> Html msg
-showMessage message =
+showMessage : msg -> Message -> Html msg
+showMessage msg message =
     case message of
         Status NotStarted ->
-            div [] [ text "battle not started" ]
+            button [ onClick msg ] [ text "Start Battle" ]
 
         Status Started ->
             div [] [ text "battle started!" ]

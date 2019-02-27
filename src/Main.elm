@@ -55,7 +55,9 @@ type Msg
     | UrlChanged Url.Url
     | GotMessage (Maybe Message)
     | GotRobots (Result Http.Error (List Robot))
+    | StartBattle
     | UploadMsg FileUpload.Msg
+    | NoOp
 
 
 
@@ -90,6 +92,20 @@ update msg model =
             in
                 ( { model | uploadState = newModel }, Cmd.map UploadMsg newMsg )
 
+        StartBattle ->
+            ( model, startBattle )
+
+        NoOp ->
+            ( model, Cmd.none )
+
+
+
+startBattle =
+    Http.post
+        { url = "http://localhost:3000/battles"
+        , body = Http.emptyBody
+        , expect = Http.expectWhatever (\_ -> NoOp) }
+
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -103,12 +119,17 @@ showRobot robot =
 
 styledView : Model -> Html Msg
 styledView model = 
-    div [ ]
+    div [ css
+          [ marginRight auto
+          , marginLeft auto
+          , width (pct 75)
+          ]
+        ]
         [ h1 [] [text "Robots"]
         , ul [] (List.map showRobot model.robots)
         , Styled.map UploadMsg (FileUpload.upload model.uploadState)
         , h1 [] [ text "Battle Results" ]
-        , showMessage model.message
+        , showMessage StartBattle model.message
         ]
 
 

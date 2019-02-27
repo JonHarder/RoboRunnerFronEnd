@@ -39,7 +39,6 @@ decodeBattleResults =
     field "battles" (list decodeBattle)
 
 
-
 showResult : BattleResult -> List (Html msg)
 showResult battleResult =
     [ tr []
@@ -52,7 +51,6 @@ showResult battleResult =
         , td [] [ text battleResult.second.name]
         , td [] [ text <| String.fromInt battleResult.second.score]
         ]
-    , hr [] []
     ]
 
 
@@ -62,9 +60,11 @@ showBattleResults battleResults =
     let
         tableHead = 
             thead []
-                  [ th [] [ text "Place" ]
-                  , th [] [ text "Robot" ]
-                  , th [] [ text "Score" ]
+                  [ tr []
+                        [th [] [ text "Place" ]
+                        , th [] [ text "Robot" ]
+                        , th [] [ text "Score" ]
+                        ]
                   ]
         rows = List.concatMap showResult battleResults
     in
