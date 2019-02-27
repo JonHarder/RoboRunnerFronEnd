@@ -5,6 +5,7 @@ import Bytes exposing (Bytes)
 import Task
 import Css exposing (..)
 import Html
+import Html.Styled as Styled
 import Html.Styled exposing (..)
 import Html.Styled.Events exposing (onClick)
 import Html.Styled.Attributes exposing (css)
@@ -16,6 +17,7 @@ import Url
 
 import Api.Robots exposing (getRobots, Robot)
 import Websockets exposing (Message(..), Status(..), recieveMessage, showMessage)
+import Components.FileUpload as FileUpload
 
 
 main : Program () Model Msg
@@ -30,16 +32,10 @@ main =
         }
 
 
-type BotData
-    = NotSelected
-    | Selected File
-    | Uploaded Bytes
-
-
 type alias Model =
     { robots : List Robot
     , message : Message
-    , uploadedBot : BotData
+    , uploadState : FileUpload.Model
     }
 
 
@@ -48,7 +44,7 @@ init flags url key =
     let
         model = { robots = []
                 , message = Status NotStarted
-                , uploadedBot = NotSelected
+                , uploadState = FileUpload.init "application/java-archive" "http://localhost:3000/upload"
                 }
     in
         (model, getRobots GotRobots)
@@ -59,19 +55,8 @@ type Msg
     | UrlChanged Url.Url
     | GotMessage (Maybe Message)
     | GotRobots (Result Http.Error (List Robot))
-    | GotFile File
-    | GotFileBytes Bytes
-    | FileRequest
-    | BotUploaded (Result Http.Error ())
+    | UploadMsg FileUpload.Msg
 
-
-
-uploadBot bytes =
-    Http.post
-        { url = "http://localhost:3000/upload"
-        , body = Http.bytesBody "application/java-archive" bytes
-        , expect = Http.expectWhatever BotUploaded
-        }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -99,21 +84,11 @@ update msg model =
                 Nothing ->
                     ( model, Cmd.none )
 
-        GotFile file ->
-            ( { model | uploadedBot = Selected file }, Task.perform GotFileBytes (File.toBytes file) )
-
-        GotFileBytes bytes ->
-            ( { model | uploadedBot = Uploaded bytes }, uploadBot bytes )
-
-        FileRequest ->
-            ( model, Select.file ["application/java-archive"] GotFile )
-
-        BotUploaded result ->
+        UploadMsg uploadMsg ->
             let
-                _ = Debug.log <| Debug.toString result
-
+                (newModel, newMsg) = FileUpload.update uploadMsg model.uploadState
             in
-                ( { model | uploadedBot = NotSelected }, Cmd.none )
+                ( { model | uploadState = newModel }, Cmd.map UploadMsg newMsg )
 
 
 subscriptions : Model -> Sub Msg
@@ -123,23 +98,7 @@ subscriptions model =
 
 showRobot : Robot -> Html msg
 showRobot robot =
-    li []
-        [ text robot.name
-        , button [ css [ marginLeft (px 20) ] ] [ text "download" ]
-        ]
-
-
-viewBotUpload : BotData -> Html Msg
-viewBotUpload botData =
-    case botData of
-        NotSelected ->
-            button [ onClick FileRequest ] [ text "Upload Bot" ]
-
-        Selected file ->
-            div [] [ text ("selected " ++ File.name file) ]
-
-        Uploaded bytes ->
-            div [] [ text "uploaded"]
+    li [] [ text robot.name ]
 
 
 styledView : Model -> Html Msg
@@ -147,7 +106,7 @@ styledView model =
     div [ ]
         [ h1 [] [text "Robots"]
         , ul [] (List.map showRobot model.robots)
-        , viewBotUpload model.uploadedBot
+        , Styled.map UploadMsg (FileUpload.upload model.uploadState)
         , h1 [] [ text "Battle Results" ]
         , showMessage model.message
         ]
