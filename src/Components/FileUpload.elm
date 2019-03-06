@@ -8,6 +8,7 @@ import Http
 import Html.Styled exposing (..)
 import Html.Styled.Events exposing (onClick)
 import Task
+import Process
 
 
 type Msg
@@ -15,6 +16,7 @@ type Msg
     | Selected File
     | UploadConfirmed File
     | FileSent (Result Http.Error ())
+    | Canceled
 
 
 type UploadState
@@ -54,6 +56,9 @@ update msg model =
         FileRequested ->
             ( model, Select.file [model.mimeType] Selected )
 
+        Canceled ->
+            ( { model | uploadState = NoFileSelected }, Cmd.none )
+
         Selected file ->
             ( { model | uploadState = FileSelected file }, Cmd.none )
 
@@ -61,7 +66,11 @@ update msg model =
             ( model, uploadFile file model.url )
 
         FileSent _ ->
-            ( { model | uploadState = Uploaded }, Cmd.none )
+            let
+                wait time thenMsg = Process.sleep time
+                           |> Task.perform (\_ -> thenMsg)
+            in
+                ( { model | uploadState = Uploaded }, wait 3000 Canceled )
 
 
 upload : Model -> Html Msg
@@ -73,7 +82,10 @@ upload model =
         FileSelected file ->
             div []
                 [ div [] [ text <| "Selected: " ++ File.name file ]
-                , div [] [ button [ onClick (UploadConfirmed file) ] [ text "Confirm" ] ]
+                , div []
+                    [ button [ onClick (UploadConfirmed file) ] [ text "Confirm" ]
+                    , button [ onClick Canceled ] [ text "Cancel" ]
+                    ]
                 ]
 
         Uploading ->
