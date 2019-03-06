@@ -36,6 +36,7 @@ type alias Model =
     { robots : List Robot
     , message : Message
     , uploadState : FileUpload.Model
+    , key : Nav.Key
     }
 
 
@@ -45,6 +46,7 @@ init flags url key =
         model = { robots = []
                 , message = Status NotStarted
                 , uploadState = FileUpload.init "application/java-archive" "http://localhost:3000/upload"
+                , key = key
                 }
     in
         (model, getRobots GotRobots)
