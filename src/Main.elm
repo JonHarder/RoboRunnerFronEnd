@@ -85,7 +85,12 @@ update msg model =
         GotMessage maybeMessage ->
             case maybeMessage of
                 Just message ->
-                    ( { model | message = message }, Cmd.none )
+                    case message of
+                        BotUploaded ->
+                            ( model, getRobots GotRobots)
+
+                        _ ->
+                            ( { model | message = message }, Cmd.none )
 
                 Nothing ->
                     ( model, Cmd.none )

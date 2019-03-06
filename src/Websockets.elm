@@ -20,6 +20,7 @@ type Message
     = Status Status
     | Results BattleResults
     | InProgress Progress
+    | BotUploaded
 
 
 port webSocketRecieveMessage : (Value -> msg) -> Sub msg
@@ -51,6 +52,9 @@ showMessage msg message =
         Results battleResults ->
             showBattleResults battleResults
 
+        BotUploaded ->
+            div [] []
+
         InProgress p ->
             div []
                 [ div [ css
@@ -75,6 +79,9 @@ messageDispatch message =
 
         "progress" ->
             field "data" (Decode.map InProgress decodeProgress)
+
+        "bot-uploaded" ->
+            succeed BotUploaded
 
         _ ->
             fail "unknown message type"

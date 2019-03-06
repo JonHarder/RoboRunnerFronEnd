@@ -14,7 +14,6 @@ type Msg
     = FileRequested
     | Selected File
     | UploadConfirmed File
-    | GotBytes Bytes
     | FileSent (Result Http.Error ())
 
 
@@ -40,12 +39,13 @@ init mimeType url =
     }
 
 
-uploadFile : Bytes -> String -> String -> Cmd Msg
-uploadFile data mimeType url =
+uploadFile : File -> String -> Cmd Msg
+uploadFile file url =
     Http.post
-        { url = url
-        , body = Http.bytesBody mimeType data
-        , expect = Http.expectWhatever FileSent }
+        { url = url ++ "/" ++ File.name file
+        , body = Http.fileBody file
+        , expect = Http.expectWhatever FileSent
+        }
 
 
 update : Msg -> Model -> (Model, Cmd Msg)
@@ -58,10 +58,7 @@ update msg model =
             ( { model | uploadState = FileSelected file }, Cmd.none )
 
         UploadConfirmed file ->
-            ( model, Task.perform GotBytes (File.toBytes file) )
-
-        GotBytes bytes ->
-            ( { model | uploadState = Uploading }, uploadFile bytes model.mimeType model.url )
+            ( model, uploadFile file model.url )
 
         FileSent _ ->
             ( { model | uploadState = Uploaded }, Cmd.none )
