@@ -15,7 +15,7 @@ import File.Select as Select
 import Http
 import Url
 
-import Api.Robots exposing (getRobots, Robot)
+import Api.Robots exposing (downloadRobot, getRobots, Robot)
 import Websockets exposing (Message(..), Status(..), recieveMessage, showMessage)
 import Components.FileUpload as FileUpload
 
@@ -55,6 +55,7 @@ type Msg
     | UrlChanged Url.Url
     | GotMessage (Maybe Message)
     | GotRobots (Result Http.Error (List Robot))
+    | DownloadBot Robot
     | StartBattle
     | UploadMsg FileUpload.Msg
     | NoOp
@@ -78,6 +79,9 @@ update msg model =
                 Ok robots ->
                     ( { model | robots = robots }, Cmd.none )
 
+        DownloadBot robot ->
+            (model, downloadRobot robot)
+
         GotMessage maybeMessage ->
             case maybeMessage of
                 Just message ->
@@ -99,7 +103,7 @@ update msg model =
             ( model, Cmd.none )
 
 
-
+startBattle : Cmd Msg
 startBattle =
     Http.post
         { url = "http://localhost:3000/battles"
@@ -112,9 +116,10 @@ subscriptions model =
     recieveMessage GotMessage
 
 
-showRobot : Robot -> Html msg
+showRobot : Robot -> Html Msg
 showRobot robot =
-    li [] [ text robot.name ]
+    li [] [ text robot.name
+          , button [ onClick (DownloadBot robot) ] [ text "Download" ] ]
 
 
 styledView : Model -> Html Msg
